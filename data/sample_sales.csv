@@ -1,0 +1,7 @@
+date,product_id,product,category,quantity,price,promotion,holiday
+2026-09-01,P001,Milk,Dairy,52,250,0,0
+2026-09-01,P002,Bread,Bakery,40,180,0,0
+2026-09-02,P001,Milk,Dairy,61,250,0,0
+2026-09-02,P002,Bread,Bakery,47,180,1,0
+2026-09-03,P003,Eggs,Dairy,35,320,0,0
+2026-09-03,P001,Milk,Dairy,73,230,1,0
