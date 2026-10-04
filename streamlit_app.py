@@ -5,6 +5,7 @@ import pandas as pd
 import streamlit as st
 
 from backend.data_processor import load_and_validate, dataset_summary, clean_dataset
+from backend.market_analyzer import analyze_product
 
 st.set_page_config(page_title="SmartStock AI - Member 2", page_icon="🛒", layout="wide")
 
@@ -16,7 +17,7 @@ if "raw_df" not in st.session_state:
 if "clean_df" not in st.session_state:
     st.session_state.clean_df = None
 
-page = st.sidebar.radio("Navigation", ["📁 Data Management", "📊 Sales Analytics"])
+page = st.sidebar.radio("Navigation", ["📁 Data Management", "📊 Sales Analytics", "🌐 Market Analyzer"])
 
 
 def money(value):
@@ -94,7 +95,7 @@ if page == "📁 Data Management":
         )
         st.info("This cleaned dataset is the handoff to the Chronos-2 forecasting module.")
 
-else:
+elif page == "📊 Sales Analytics":
     st.header("📊 Sales Analytics")
     df = st.session_state.clean_df
 
@@ -154,3 +155,70 @@ else:
         st.dataframe(display, use_container_width=True)
 
         st.caption("These are historical analytics. Predicted best sellers belong to the Product Intelligence module and should use Chronos-2 forecast output.")
+
+
+else:
+    st.header("🌐 Market Analyzer")
+    st.write(
+        "Research current web trend signals with DuckDuckGo, compare a product with "
+        "the SmartStock catalog, and surface stocking opportunities."
+    )
+    st.info(
+        "Trend Score measures web evidence/popularity signals. It is not verified sales volume. "
+        "Historical quantity is sales quantity, not current inventory."
+    )
+
+    left, right = st.columns([2, 1])
+    with left:
+        market_product = st.text_input(
+            "Product to analyze",
+            placeholder="e.g. Greek Yogurt, Protein Bars, Almond Milk",
+        )
+    with right:
+        market_type = st.selectbox("Market", ["grocery", "food retail", "supermarket"])
+
+    if st.button("🔎 Analyze Market", type="primary", disabled=not market_product.strip()):
+        with st.spinner("Searching current market signals..."):
+            try:
+                report = analyze_product(market_product.strip(), market_type)
+                st.session_state.market_report = report
+            except Exception as exc:
+                st.session_state.market_report = None
+                st.error(f"Market search failed: {exc}")
+
+    report = st.session_state.get("market_report")
+    if report:
+        catalog = report["catalog"]
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Web Trend Score", f'{report["trend_score"]}/100')
+        c2.metric("In Catalog", "Yes" if catalog["exists"] else "No")
+        c3.metric("Historical Units Sold", f'{catalog["units_sold"]:,.0f}' if catalog["exists"] else "N/A")
+
+        action = report["action"]
+        if action == "NEW STOCK OPPORTUNITY":
+            st.success(f"🟢 {action}")
+        elif action in {"REVIEW DEMAND / RESTOCK", "RESEARCH FURTHER"}:
+            st.warning(f"🟡 {action}")
+        else:
+            st.info(f"🔵 {action}")
+        st.write(report["reason"])
+
+        if catalog["exists"]:
+            st.caption(
+                f'Matched catalog product: {catalog["matched_product"]} · '
+                f'Historical revenue: {money(catalog["revenue"])}'
+            )
+
+        st.subheader("Web Evidence")
+        if not report["results"]:
+            st.warning("No web results were returned for this search.")
+        for i, item in enumerate(report["results"], 1):
+            title = item["title"] or f"Source {i}"
+            if item["url"]:
+                st.markdown(f'**{i}. [{title}]({item["url"]})**')
+            else:
+                st.markdown(f"**{i}. {title}**")
+            if item["snippet"]:
+                st.write(item["snippet"])
+
+        st.caption(f'Search query: {report["query"]}')
