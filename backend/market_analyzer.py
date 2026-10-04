@@ -111,6 +111,35 @@ def trend_score(product: str, results: list[dict[str, str]]) -> int:
     return int(min(100, mention_component + evidence_component + source_component))
 
 
+OPPORTUNITY_CANDIDATES = [
+    "Protein Bars", "Almond Milk", "Organic Oats", "Greek Yogurt",
+    "Plant Based Milk", "Granola", "Energy Drinks", "Cold Brew Coffee",
+    "Chia Seeds", "Avocado", "Frozen Berries", "Electrolyte Drinks",
+]
+
+
+def discover_opportunities(market: str = "grocery", limit: int = 5) -> list[dict[str, Any]]:
+    """Rank candidate products using fresh web evidence and local catalog data.
+
+    This is a discovery shortlist, not a claim that these are verified best sellers.
+    Each candidate is independently researched so scores are evidence-based.
+    """
+    reports = []
+    for product in OPPORTUNITY_CANDIDATES:
+        try:
+            report = analyze_product(product, market)
+            if report["results"]:
+                reports.append(report)
+        except Exception:
+            continue
+
+    reports.sort(
+        key=lambda x: (x["trend_score"], not x["catalog"]["exists"]),
+        reverse=True,
+    )
+    return reports[:limit]
+
+
 def analyze_product(product: str, market: str = "grocery") -> dict[str, Any]:
     query = f'"{product}" {market} trending best selling popular 2026'
     results = search_market(query)

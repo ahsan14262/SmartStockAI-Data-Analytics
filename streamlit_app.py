@@ -5,7 +5,7 @@ import pandas as pd
 import streamlit as st
 
 from backend.data_processor import load_and_validate, dataset_summary, clean_dataset
-from backend.market_analyzer import analyze_product
+from backend.market_analyzer import analyze_product, discover_opportunities
 
 st.set_page_config(page_title="SmartStock AI - Member 2", page_icon="🛒", layout="wide")
 
@@ -168,6 +168,47 @@ else:
         "Historical quantity is sales quantity, not current inventory."
     )
 
+    st.subheader("🔥 Trending Opportunities")
+    st.caption("Search a basket of emerging grocery categories and rank them using fresh web evidence.")
+
+    if st.button("🌐 Search Market Trends", type="primary"):
+        with st.spinner("Researching market opportunities. This can take a little time..."):
+            try:
+                st.session_state.market_opportunities = discover_opportunities("grocery", limit=5)
+            except Exception as exc:
+                st.session_state.market_opportunities = []
+                st.error(f"Trend discovery failed: {exc}")
+
+    opportunities = st.session_state.get("market_opportunities", [])
+    if opportunities:
+        for item in opportunities:
+            catalog = item["catalog"]
+            st.markdown(f"### {item['product']}")
+            c1, c2 = st.columns(2)
+            c1.metric("Trend Score", f"{item['trend_score']}/100")
+            c2.metric("Catalog Status", "Available" if catalog["exists"] else "NOT FOUND")
+
+            if not catalog["exists"] and item["trend_score"] >= 45:
+                st.success("🟢 Recommendation: CONSIDER ADDING TO STOCK — NEW PRODUCT OPPORTUNITY")
+            elif catalog["exists"] and item["trend_score"] >= 45:
+                st.warning("🟠 Recommendation: Consider increasing stock after forecast/inventory review")
+            elif not catalog["exists"]:
+                st.info("🔵 Recommendation: Research further before adding")
+            else:
+                st.info("🔵 Recommendation: Monitor")
+
+            with st.expander("View market evidence"):
+                for source in item["results"][:3]:
+                    title = source["title"] or "Source"
+                    if source["url"]:
+                        st.markdown(f'- [{title}]({source["url"]})')
+                    else:
+                        st.write(f"- {title}")
+                    if source["snippet"]:
+                        st.caption(source["snippet"])
+            st.divider()
+
+    st.subheader("🔎 Analyze a Specific Product")
     left, right = st.columns([2, 1])
     with left:
         market_product = st.text_input(
